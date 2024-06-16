@@ -5,6 +5,29 @@ import { useRequestWebHIDDevice } from './webhid'
 import { DP100_USB_INFO, useDP100, useInfoSubscription } from './dp100/dp100';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BasicInfo, BasicSet } from './dp100/frame-data';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  ChartOptions,
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
 
 const filters = [DP100_USB_INFO];
 
@@ -22,6 +45,48 @@ export default function Home() {
 interface IDP100Props {
   device: HIDDevice,
 }
+
+const chartOptions: ChartOptions = {
+  responsive: true,
+  plugins: {
+    legend: {
+      position: 'top' as const,
+    },
+    title: {
+      display: true,
+      text: 'Output',
+    },
+  },
+  animation: { duration: 0 },
+  scales: {
+    y: {
+      type: 'linear' as const,
+      display: true,
+      position: 'left' as const,
+
+    },
+    y1: {
+      type: 'linear' as const,
+      display: true,
+      position: 'right' as const,
+    }
+  }
+};
+
+interface ChartData {
+  maxDataPoints: number,
+  timestamps: Date[],
+  currents: number[],
+  voltages: number[],
+}
+
+const chartValues: ChartData = {
+  maxDataPoints: 1000,
+  timestamps: [],
+  currents: [],
+  voltages: [],
+}
+
 
 const sleep = async (delayMs: number) =>  new Promise((resolve) => setTimeout(resolve, delayMs))
 const DP100: React.FC<IDP100Props> = ({device}) => {
@@ -51,6 +116,38 @@ const DP100: React.FC<IDP100Props> = ({device}) => {
 
   const modeStr = basicInfo === null ? 'unknown' : 
     basicInfo.out_mode === 2 ? 'OFF' : basicInfo.out_mode === 1 ? 'CV' : basicInfo.out_mode === 0 ? 'CC' : basicInfo.out_mode === 130 ? 'UVP' : 'unknown'
+
+  // Collect chart data.
+  if (basicInfo) {
+    if (chartValues.currents.length > chartValues.maxDataPoints) {
+      chartValues.timestamps.shift()
+      chartValues.currents.shift();
+      chartValues.voltages.shift();
+    }
+    chartValues.timestamps.push(new Date())
+    chartValues.currents.push(basicInfo?.iout / 1000)
+    chartValues.voltages.push(basicInfo?.vout / 1000)
+  }
+
+  const chartData = {
+    labels: chartValues.timestamps.map((v, _) => `${v.getHours()}:${v.getMinutes()}:${v.getSeconds()}.${v.getMilliseconds()}`),
+    datasets: [
+      {
+        label: 'Currents',
+        data: chartValues.currents,
+        borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+        yAxisID: 'y',
+      },
+      {
+        label: 'Voltages',
+        data: chartValues.voltages,
+        borderColor: 'rgb(132, 99, 132)',
+        backgroundColor: 'rgba(132, 99, 132, 0.5)',
+        yAxisID: 'y1',
+      },
+    ],
+  };
 
   return (
     <>
@@ -118,6 +215,7 @@ const DP100: React.FC<IDP100Props> = ({device}) => {
       )}
     </div>
     <br />
+    <Line options={chartOptions} data={chartData} />;
     </>
   )
 }
