@@ -46,7 +46,7 @@ interface IDP100Props {
   device: HIDDevice,
 }
 
-const chartOptions: ChartOptions = {
+const chartOptions: ChartOptions<"line"> = {
   responsive: true,
   plugins: {
     legend: {
@@ -74,6 +74,8 @@ const chartOptions: ChartOptions = {
 };
 
 interface ChartData {
+  isVisible: boolean,
+  isCapturing: boolean,
   maxDataPoints: number,
   timestamps: Date[],
   currents: number[],
@@ -81,6 +83,8 @@ interface ChartData {
 }
 
 const chartValues: ChartData = {
+  isVisible: false,
+  isCapturing: true,
   maxDataPoints: 1000,
   timestamps: [],
   currents: [],
@@ -118,7 +122,7 @@ const DP100: React.FC<IDP100Props> = ({device}) => {
     basicInfo.out_mode === 2 ? 'OFF' : basicInfo.out_mode === 1 ? 'CV' : basicInfo.out_mode === 0 ? 'CC' : basicInfo.out_mode === 130 ? 'UVP' : 'unknown'
 
   // Collect chart data.
-  if (basicInfo) {
+  if (basicInfo && chartValues.isCapturing) {
     if (chartValues.currents.length > chartValues.maxDataPoints) {
       chartValues.timestamps.shift()
       chartValues.currents.shift();
@@ -133,14 +137,14 @@ const DP100: React.FC<IDP100Props> = ({device}) => {
     labels: chartValues.timestamps.map((v, _) => `${v.getHours()}:${v.getMinutes()}:${v.getSeconds()}.${v.getMilliseconds()}`),
     datasets: [
       {
-        label: 'Currents',
+        label: 'Current',
         data: chartValues.currents,
         borderColor: 'rgb(255, 99, 132)',
         backgroundColor: 'rgba(255, 99, 132, 0.5)',
         yAxisID: 'y',
       },
       {
-        label: 'Voltages',
+        label: 'Voltage',
         data: chartValues.voltages,
         borderColor: 'rgb(132, 99, 132)',
         backgroundColor: 'rgba(132, 99, 132, 0.5)',
@@ -148,6 +152,9 @@ const DP100: React.FC<IDP100Props> = ({device}) => {
       },
     ],
   };
+
+  const graphVisibleText = chartValues.isVisible ? "Hide graphs" : "Show graphs";
+  const graphCapturingVisibleText = chartValues.isCapturing ? "Pause": "Resume";
 
   return (
     <>
@@ -215,7 +222,19 @@ const DP100: React.FC<IDP100Props> = ({device}) => {
       )}
     </div>
     <br />
-    <Line options={chartOptions} data={chartData} />;
+    <div>
+      <button onClick={() => chartValues.isVisible = !chartValues.isVisible}>{graphVisibleText}</button>
+      {chartValues.isVisible && (
+        <div>
+        <button style={{marginLeft: 10}} onClick={() => chartValues.isCapturing = !chartValues.isCapturing}>
+          {graphCapturingVisibleText
+        }</button>
+        </div>
+      )}
+      {chartValues.isVisible && (
+        <Line options={chartOptions} data={chartData} />
+      )}
+    </div>
     </>
   )
 }
